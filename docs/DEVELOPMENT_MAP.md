@@ -62,6 +62,23 @@ meeting started in silence stopped after five seconds (issue #42; physical
 reproduction and local fix check in [OCTOBER_PR_INTEGRATION.md](OCTOBER_PR_INTEGRATION.md)).
 A later tap stall warns the user (`RecordingState::report_warning` →
 `recording-audio-route-warning`) and keeps the microphone recording.
+has a physical macOS reproduction/qualification yet.
+The home screen's macOS computer-audio banner (`hooks/usePermissionCheck.ts`,
+`components/PermissionWarning.tsx`) reads Audio Capture authorization from TCC
+through `get_system_audio_permission_status` in `audio/permissions.rs`. That uses
+the private `TCCAccessPreflight`, resolved with `dlopen` at runtime, because Apple
+has no public query and a tap returns zeros both when denied and in silence.
+Granted means no banner, with no audible proof needed on each launch. Denied and
+not-yet-asked get their own advice. TCC answers from a per-process cache: on
+macOS 26.6.2 a grant from the prompt that "Check again" triggers kept reading
+not-yet-asked in that process until restart (checked with an ad-hoc build).
+Anything short of granted is therefore asked again in a short-lived copy of the
+app binary. `main.rs` handles `--audio-capture-status` by printing the code and
+exiting before Tauri starts. Audible samples from the session-scoped probe also
+clear the banner, because a denied tap returns zeros. If the symbol is missing,
+the status is `unknown` and only the probe decides. Covered by
+`tests/hooks/permission-check.test.tsx` and two native tests in `permissions.rs`;
+the native check that the symbol resolves only runs on macOS.
 `frontend/src/app/layout.tsx` now loads packaged Inter font files from
 `@fontsource-variable/inter` rather than fetching Google CSS during a Next
 production build. `globals.css` owns `--font-sans`, and `frontend/pnpm-lock.yaml`
